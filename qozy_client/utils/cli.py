@@ -90,6 +90,10 @@ def colored_bool(value, color_true=Color.GREEN, color_false=Color.RED):
 class CliWriter():
     def __init__(self, output_stream):
         self.output_stream = output_stream
+        self.enable_colors = True
+
+    def disable_colors(self):
+        self.enable_colors = False
 
     def table(self, *header, column_padding=3, padding_symbol=" "):
         return TableWriter(self, *header, column_padding=column_padding, padding_symbol=padding_symbol)
@@ -101,9 +105,15 @@ class CliWriter():
         return ListWriter(self, items)
 
     def write(self, text):
+        if isinstance(text, (ColorizedString, DecoratedString)) and not self.enable_colors:
+            text = text.text
+
         self.output_stream.write(str(text))
 
     def writeline(self, text=""):
+        if isinstance(text, (ColorizedString, DecoratedString)) and not self.enable_colors:
+            text = text.text
+
         self.output_stream.write(str(text))
         self.output_stream.write("\n")
 
@@ -138,7 +148,8 @@ class ListWriter():
 
     def write(self):
         for item in self.items:
-            self.cli_writer.writeline("  \u2022 " + str(item))
+            self.cli_writer.write("  \u2022 ")
+            self.cli_writer.writeline(item)
 
 
 class DictWriter():
@@ -156,7 +167,7 @@ class DictWriter():
     def write(self):
         for key, value in self.items:
             self.cli_writer.write((key + ":").ljust(self.key_width + 3))
-            self.cli_writer.writeline(str(value))
+            self.cli_writer.writeline(value)
 
 
 class TableWriter():
@@ -177,14 +188,16 @@ class TableWriter():
         return self
 
     def _pad_right(self, text, size):
-        return str(text) + self.padding_symbol * (size - len(text))
+        return self.padding_symbol * (size - len(text))
 
     def write(self):
         for head, column_width in zip(self.header, self.column_widths):
+            self.cli_writer.write(head)
             self.cli_writer.write(self._pad_right(head, column_width + self.column_padding))
         self.cli_writer.writeline()
 
         for row in self.rows:
             for column, column_width in zip(row, self.column_widths):
+                self.cli_writer.write(column)
                 self.cli_writer.write(self._pad_right(column, column_width + self.column_padding))
             self.cli_writer.writeline()

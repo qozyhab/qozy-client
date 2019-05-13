@@ -4,15 +4,15 @@ import requests
 
 class Client():
     VERSION = "0.1"
-    URL_SCHEME = "http://{host:s}:{port:d}"
+    URL_SCHEME = "http://{host:s}:{port:d}/api"
 
     def __init__(self, host, port):
         self.base_url = self.URL_SCHEME.format(host=host, port=port)
 
-        info = self.get("/")
+        info = self.get("")
 
         if info["version"] != self.VERSION:
-            raise Exception("incompatible versions {server_version:s} (client version {client_version:s}".format(str(info["version"]), client_version=self.VERSION))
+            raise Exception("Incompatible Versions {server_version:s} (client version {client_version:s}".format(str(info["version"]), client_version=self.VERSION))
 
     def get(self, path, params={}):
         response = requests.get(self.base_url + path, params=params)
@@ -63,7 +63,6 @@ class Client():
         return Bridge(
             self,
             bridge["id"],
-            bridge["active"],
             bridge["vendorPrefix"],
             bridge["instanceId"],
             bridge["settingsSchema"],
@@ -77,7 +76,6 @@ class Client():
             yield Bridge(
                 self,
                 bridge["id"],
-                bridge["active"],
                 bridge["vendorPrefix"],
                 bridge["instanceId"],
                 bridge["settingsSchema"],
@@ -252,7 +250,7 @@ class Rule():
         return TriggerList(self, self._triggers.values())
 
     def add_trigger(self, trigger):
-        return self.client.post("/rules/{rule_id:s}/triggers".format(self.id), payload=trigger.id)
+        return self.client.post("/rules/{rule_id:s}/triggers".format(rule_id=self.id), payload=trigger.id)
 
 
 class Trigger():
@@ -311,7 +309,6 @@ class Thing():
         return Bridge(
             self.client,
             bridge["id"],
-            bridge["active"],
             bridge["vendorPrefix"],
             bridge["instanceId"],
             bridge["settingsSchema"],
@@ -346,7 +343,7 @@ class Channel():
         self.value = value
 
     def apply(self, value):
-        self.client.put("/things/{thing_id:s}/set/{channel:s}".format(thing_id=self.thing.id, channel=self.channel), payload=value)
+        self.client.put("/things/{thing_id:s}/channels/{channel:s}".format(thing_id=self.thing.id, channel=self.channel), payload=value)
 
 
 class ThingList(list):
@@ -357,11 +354,10 @@ class ThingList(list):
 
 
 class Bridge():
-    def __init__(self, client, id, active, vendor_prefix, instance_id, settings_schema, settings):
+    def __init__(self, client, id, vendor_prefix, instance_id, settings_schema, settings):
         self.client = client
 
         self.id = id
-        self.active = active
         self.vendor_prefix = vendor_prefix
         self.instance_id = instance_id
         self.settings_schema = settings_schema
@@ -398,6 +394,10 @@ class Bridge():
             result.append(result_thing)
         
         return result
+
+    @property
+    def active(self):
+        return self.client.get("/bridges/{bridge_id:s}/running".format(bridge_id=self.id))
 
     def set_settings(self, settings):
         try:

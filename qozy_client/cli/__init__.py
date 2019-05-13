@@ -4,7 +4,7 @@ import os
 import argparse
 import json
 from tempfile import NamedTemporaryFile
-from qozy_client.client import Client
+from qozy_client.client import Client, Channel
 from qozy_client.utils.cli import CliWriter, colorize, italic, Color, colored_bool
 from qozy_client.utils.jsonschema import JsonSchemaReader
 
@@ -171,7 +171,6 @@ class ThingCLI():
         if options.command == "set":
             try:
                 channel = thing.channel(options.channel)
-                print(channel.type)
 
                 if channel.type == "SwitchChannel":
                     value = True if options.value == "on" else False
@@ -205,11 +204,16 @@ class ThingCLI():
             dict_writer.add("Bridge", thing.bridge_id)
             dict_writer.add("Online", colored_bool(thing.online()))
             dict_writer.add("Channels", str(len(thing.channels())))
+            dict_writer.write()
+
+            channel_writer = writer.table("NAME", "SENSOR", "VALUE")
+
+            writer.writeline()
 
             for channel in thing.channels().values():
-                dict_writer.add("  " + channel.channel, channel.value)
+                channel_writer.row(channel.channel, colored_bool(channel.sensor), channel.value)
 
-            dict_writer.write()
+            channel_writer.write()
 
             if thing.tags:
                 writer.headline("Tags")
@@ -435,6 +439,7 @@ def main():
     parser = argparse.ArgumentParser(description="Qozy command line interface")
     parser.add_argument("--host", type=str, default=os.getenv("QOZY_REMOTE_HOST", "localhost"))
     parser.add_argument("--port", type=int, default=os.getenv("QOZY_REMOTE_PORT", 9876))
+    parser.add_argument("--no-colors", action="store_true", dest="no_colors")
 
     subparsers = parser.add_subparsers(dest="group")
     subparsers.required = True
@@ -450,6 +455,9 @@ def main():
     except ConnectionRefusedError:
         writer.alert("Could not connect to Qozy daemon at {}:{}".format(opts.host, opts.port))
         exit(1)
+
+    if opts.no_colors:
+        writer.disable_colors()
 
     cli_class = cli_classes[opts.group]
     cli = cli_class(client)
